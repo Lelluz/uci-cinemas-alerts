@@ -1,5 +1,6 @@
 {
   "dependencies": {
+    "aws-sdk": "^2.1569.0",
     "axios": "^1.6.7",
     "cheerio": "^1.0.0-rc.12",
     "diff": "^5.2.0"
