@@ -4,14 +4,18 @@ import { diffArrays } from "diff";
 import { S3Client } from "@aws-sdk/client-s3";
 
 const s3 = new S3Client({});
-const bucketName = "uci-cinemas-imax-scraper-bucket"; // Sostituisci con il nome del tuo bucket S3
+const bucketName = "uci-cinemas-imax-scraper-bucket";
 const scrapedDataFolderPath = "scraped-data";
 const updatesFolderPath = "differences-data";
 const url = "https://imax.ucicinemas.it/";
 
 async function getHTML() {
-  const { data: html } = await axios.get(url);
-  return html;
+  try {
+    const response = await axios.get(url);
+    return response.data;
+  } catch (error) {
+    throw error;
+  }
 }
 
 function getMovieScript(input, startStr, endStr) {
