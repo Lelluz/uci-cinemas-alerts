@@ -120,7 +120,7 @@ async function compareLatestTwoFiles(scrapedDataFolderPath) {
 async function getObjectFromS3(filePath) {
   try {
     const response = await s3.getObject({ Bucket: bucketName, Key: filePath });
-    return response.Body;
+    return JSON.stringify(response.Body.toString("utf-8"));
   } catch (error) {
     console.error("Error retrieving object from S3:", error);
     throw error;
