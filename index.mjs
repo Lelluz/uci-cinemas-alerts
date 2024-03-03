@@ -4,7 +4,7 @@ import { diffArrays } from "diff";
 import { S3Client } from "@aws-sdk/client-s3";
 
 const s3 = new S3Client({});
-const bucketName = "uci-cinemas-imax-scraper-bucket";
+const bucketName = "uci-cinemas-imax-scraper-bucket-milan";
 const scrapedDataFolderPath = "scraped-data";
 const updatesFolderPath = "differences-data";
 const url = "https://imax.ucicinemas.it/";
@@ -164,12 +164,22 @@ export const handler = async (event) => {
       "moment.locale('it')",
       "function gotToBuyPage(pid) {"
     );
+    const iifeMoviesScript = `
+      (() => {
+        ${moviesScript}
+        return({
+          times: times,
+          movies: movies,
+          days: days
+        });
+      })()
+    `;
 
-    eval(moviesScript);
+    const evalObject = eval(iifeMoviesScript);
 
-    const TIMES = times,
-      MOVIES = movies,
-      DAYS = days;
+    const TIMES = evalObject.times,
+      MOVIES = evalObject.movies,
+      DAYS = evalObject.days;
 
     const newFilmSchema = getNewFilmSchema(DAYS);
 
