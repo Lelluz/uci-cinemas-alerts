@@ -1,9 +1,9 @@
 import axios from "axios";
 import cheerio from "cheerio";
-import AWS from "aws-sdk";
 import { diffArrays } from "diff";
+import { S3Client } from "@aws-sdk/client-s3";
 
-const s3 = new AWS.S3();
+const s3 = new S3Client({});
 const bucketName = "uci-cinemas-imax-scraper-bucket"; // Sostituisci con il nome del tuo bucket S3
 const scrapedDataFolderPath = "scraped-data";
 const updatesFolderPath = "differences-data";
