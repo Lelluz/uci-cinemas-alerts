@@ -84,7 +84,7 @@ async function compareLatestTwoFiles(scrapedDataFolderPath) {
   };
 
   try {
-    const data = await s3.listObjectsV2(params).send();
+    const data = await s3.listObjectsV2(params);
     const scrapedDataFiles = data.Contents.sort(
       (a, b) => b.LastModified - a.LastModified
     );
@@ -96,14 +96,12 @@ async function compareLatestTwoFiles(scrapedDataFolderPath) {
 
       const latestData = JSON.parse(
         (
-          await s3.getObject({ Bucket: bucketName, Key: latestFilePath }).send()
+          await s3.getObject({ Bucket: bucketName, Key: latestFilePath })
         ).Body.toString()
       );
       const penultimateData = JSON.parse(
         (
-          await s3
-            .getObject({ Bucket: bucketName, Key: penultimateFilePath })
-            .send()
+          await s3.getObject({ Bucket: bucketName, Key: penultimateFilePath })
         ).Body.toString()
       );
 
