@@ -1,9 +1,9 @@
 import axios from "axios";
 import cheerio from "cheerio";
 import { diffArrays } from "diff";
-import { S3Client } from "@aws-sdk/client-s3";
+import { S3 } from "@aws-sdk/client-s3";
 
-const s3 = new S3Client({});
+const s3 = new S3({ region: "eu-south-1" });
 const bucketName = "uci-cinemas-imax-scraper-bucket-milan";
 const scrapedDataFolderPath = "scraped-data";
 const updatesFolderPath = "differences-data";
@@ -68,21 +68,23 @@ async function saveToFile(data, filePath) {
     Body: JSON.stringify(data, null, 2),
   };
 
-  await s3.upload(params).promise();
+  try {
+    const response = await s3.putObject(params);
+    console.log("File saved successfully.", response);
+  } catch (error) {
+    console.error("Error uploading file to S3:", error);
+    throw error;
+  }
 }
 
-function compareLatestTwoFiles(scrapedDataFolderPath) {
+async function compareLatestTwoFiles(scrapedDataFolderPath) {
   const params = {
     Bucket: bucketName,
     Prefix: scrapedDataFolderPath,
   };
 
-  s3.listObjectsV2(params, async (err, data) => {
-    if (err) {
-      console.error("Errore nel recupero dei file da S3:", err);
-      return;
-    }
-
+  try {
+    const data = await s3.listObjectsV2(params).send();
     const scrapedDataFiles = data.Contents.sort(
       (a, b) => b.LastModified - a.LastModified
     );
@@ -92,41 +94,37 @@ function compareLatestTwoFiles(scrapedDataFolderPath) {
       const latestFilePath = latestFile.Key;
       const penultimateFilePath = penultimateFile.Key;
 
-      try {
-        const latestData = JSON.parse(
-          (
-            await s3
-              .getObject({ Bucket: bucketName, Key: latestFilePath })
-              .promise()
-          ).Body.toString()
-        );
-        const penultimateData = JSON.parse(
-          (
-            await s3
-              .getObject({ Bucket: bucketName, Key: penultimateFilePath })
-              .promise()
-          ).Body.toString()
-        );
+      const latestData = JSON.parse(
+        (
+          await s3.getObject({ Bucket: bucketName, Key: latestFilePath }).send()
+        ).Body.toString()
+      );
+      const penultimateData = JSON.parse(
+        (
+          await s3
+            .getObject({ Bucket: bucketName, Key: penultimateFilePath })
+            .send()
+        ).Body.toString()
+      );
 
-        const differences = diffArrays(penultimateData, latestData, {
-          comparator: (a, b) => a.movieTitle === b.movieTitle,
-        });
+      const differences = diffArrays(penultimateData, latestData, {
+        comparator: (a, b) => a.movieTitle === b.movieTitle,
+      });
 
-        console.log("Comparing:", penultimateFilePath, "and", latestFilePath);
+      console.log("Comparing:", penultimateFilePath, "and", latestFilePath);
 
-        if (differences.some((part) => part.added || part.removed)) {
-          console.log("Differences detected.");
-          await saveDifferencesToFile(differences);
-        } else {
-          console.log("No differences found.");
-        }
-      } catch (error) {
-        console.error("Errore nella lettura dei file da S3:", error);
+      if (differences.some((part) => part.added || part.removed)) {
+        console.log("Differences detected.");
+        await saveDifferencesToFile(differences);
+      } else {
+        console.log("No differences found.");
       }
     } else {
       console.log("Not enough files for comparison.");
     }
-  });
+  } catch (error) {
+    console.error("Error in file comparison:", error);
+  }
 }
 
 async function saveDifferencesToFile(differences) {
@@ -186,7 +184,7 @@ export const handler = async (event) => {
     await saveToFile(newFilmSchema, newScrapedDataFilePath);
     console.log("New data saved to:", newScrapedDataFilePath);
 
-    compareLatestTwoFiles(scrapedDataFolderPath);
+    await compareLatestTwoFiles(scrapedDataFolderPath);
   } catch (error) {
     console.error("Error in Lambda function:", error);
   }
