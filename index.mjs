@@ -94,10 +94,10 @@ async function compareLatestTwoFiles(scrapedDataFolderPath) {
       const latestFilePath = latestFile.Key;
       const penultimateFilePath = penultimateFile.Key;
 
-      const latestData = await getObjectFromS3(latestFilePath);
-      const penultimateData = await getObjectFromS3(penultimateFilePath);
+      const latestS3FileObj = await getObjectFromS3(latestFilePath);
+      const penultimateS3FileObj = await getObjectFromS3(penultimateFilePath);
 
-      const differences = diffArrays(penultimateData, latestData, {
+      const differences = diffArrays(latestS3FileObj, penultimateS3FileObj, {
         comparator: (a, b) => a.movieTitle === b.movieTitle,
       });
 
