@@ -8,6 +8,8 @@ const bucketName = "uci-cinemas-imax-scraper-bucket-milan";
 const scrapedDataFolderPath = "scraped-data";
 const updatesFolderPath = "differences-data";
 const url = "https://imax.ucicinemas.it/";
+const telegramToken = process.env.TELEGRAM_BOT_TOKEN;
+const telegramChatId = process.env.TELEGRAM_CHANNEL_CHAT_ID;
 
 async function getHTML() {
   try {
@@ -110,6 +112,27 @@ async function compareLatestTwoFiles(scrapedDataFolderPath) {
       if (differences.some((part) => part.added || part.removed)) {
         console.log("Differences detected.");
         await saveDifferencesToFile(differences);
+
+        const telegramChannelMessageText = `
+          Ciao! è stata aggiornata la programmazione dei film UCI Cinemas!
+          
+          Ecco i nuovi spettacoli:
+          
+          🎥 🍿
+
+          ${differences
+            .map(
+              (event) => `
+            Film: ${event.movieTitle}
+            Data: ${event.date}
+            Orario: ${event.time}
+            Cinema: ${event.cinemaName}
+          `
+            )
+            .join("")}
+
+          `;
+        sendTelegramAlert(telegramChannelMessageText);
       } else {
         console.log("No differences found.");
       }
@@ -147,6 +170,30 @@ async function saveDifferencesToFile(differences) {
     console.log("Differences saved to:", differencesFilePath);
   } catch (error) {
     console.error("Error saving differences to file:", error);
+  }
+}
+
+async function sendTelegramAlert(message) {
+  const apiUrl = `https://api.telegram.org/bot${telegramToken}/sendMessage`;
+  const params = {
+    chat_id: telegramChatId,
+    text: message,
+  };
+
+  try {
+    const response = await axios.post(apiUrl, params);
+
+    return {
+      statusCode: response.status,
+      body: JSON.stringify(response.data),
+    };
+  } catch (error) {
+    console.error("Error:", error);
+
+    return {
+      statusCode: 500,
+      body: JSON.stringify({ error: "Internal Server Error" }),
+    };
   }
 }
 
