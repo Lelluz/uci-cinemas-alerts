@@ -97,9 +97,13 @@ async function compareLatestTwoFiles(scrapedDataFolderPath) {
       const latestS3FileObj = await getObjectFromS3(latestFilePath);
       const penultimateS3FileObj = await getObjectFromS3(penultimateFilePath);
 
-      const differences = diffArrays(latestS3FileObj, penultimateS3FileObj, {
-        comparator: (a, b) => a.movieTitle === b.movieTitle,
-      });
+      const differences = diffArrays(
+        JSON.parse(latestS3FileObj),
+        JSON.parse(penultimateS3FileObj),
+        {
+          comparator: (a, b) => a.movieTitle === b.movieTitle,
+        }
+      );
 
       console.log("Comparing:", penultimateFilePath, "and", latestFilePath);
 
@@ -120,7 +124,7 @@ async function compareLatestTwoFiles(scrapedDataFolderPath) {
 async function getObjectFromS3(filePath) {
   try {
     const response = await s3.getObject({ Bucket: bucketName, Key: filePath });
-    return JSON.stringify(response.Body.toString("utf-8"));
+    return await response.Body?.transformToString();
   } catch (error) {
     console.error("Error retrieving object from S3:", error);
     throw error;
