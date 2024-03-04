@@ -132,7 +132,7 @@ async function compareLatestTwoFiles(scrapedDataFolderPath) {
             .join("")}
 
           `;
-        sendTelegramAlert(telegramChannelMessageText);
+        await sendTelegramAlert(telegramChannelMessageText);
       } else {
         console.log("No differences found.");
       }
