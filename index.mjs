@@ -113,24 +113,26 @@ async function compareLatestTwoFiles(scrapedDataFolderPath) {
         console.log("Differences detected.");
         await saveDifferencesToFile(differences);
 
+        /*const newEvents = `
+        Ecco i nuovi spettacoli:
+
+            ${differences
+              .map(
+                (event) => `
+              Film: ${event.movieTitle}
+              Data: ${event.date}
+              Orario: ${event.time}
+              Cinema: ${event.cinemaName}
+            `
+              )
+              .join("")}
+          `;*/
+
         const telegramChannelMessageText = `
-          Ciao! è stata aggiornata la programmazione dei film UCI Cinemas!
+          È stata aggiornata la programmazione dei film UCI Cinemas nelle sale IMAX! 🎥 🍿
           
-          Ecco i nuovi spettacoli:
-          
-          🎥 🍿
-
-          ${differences
-            .map(
-              (event) => `
-            Film: ${event.movieTitle}
-            Data: ${event.date}
-            Orario: ${event.time}
-            Cinema: ${event.cinemaName}
-          `
-            )
-            .join("")}
-
+          ${url}
+            
           `;
         await sendTelegramAlert(telegramChannelMessageText);
       } else {
