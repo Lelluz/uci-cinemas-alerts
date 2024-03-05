@@ -3,7 +3,8 @@ const fs = require("fs");
 const path = require("path");
 const _ = require("lodash");
 
-const apiUrl = "https://www.ucicinemas.it/rest/v3/cinemas/4/programming";
+const cinemaId = "4" /* Meridiana - Bologna */
+const apiUrl = `https://www.ucicinemas.it/rest/v3/cinemas/${cinemaId}/programming`;
 const scrapedDataFolderPath = "scraped-data";
 const updatesFolderPath = "differences-data";
 const bearerToken = "SkAkzoScIbhb3uNcGdk8UL0XMIbvs5";
@@ -45,19 +46,13 @@ function createNewStructure(apiResponse) {
   });
 }
 
-function compareAndSaveDifferences(newStructure, latestFilePath, updatesFolderPath) {
-  if (fs.existsSync(latestFilePath)) {
-    const latestData = JSON.parse(fs.readFileSync(latestFilePath));
-    const combinedLatestData = createNewStructure(latestData);
-
-    const differences = _.differenceWith(newStructure, combinedLatestData, _.isEqual);
+function compareAndSaveDifferences(newStructure, penultimateFilePath, updatesFolderPath) {
+  if (fs.existsSync(penultimateFilePath)) {
+    const penultimateData = JSON.parse(fs.readFileSync(penultimateFilePath));
+    const differences = _.differenceWith(newStructure, penultimateData, _.isEqual);
 
     if (differences.length > 0) {
-      console.log("Differences detected:");
-
-      differences.forEach((diff) => {
-        console.log(diff);
-      });
+      console.log("Differences detected.");
 
       const timestamp = new Date()
         .toISOString()
@@ -108,10 +103,10 @@ getJSON().then((data) => {
     }))
     .sort((a, b) => b.time - a.time);
 
-  if (sortedFiles.length > 1) {
-    const latestFile = sortedFiles[1];
-    const latestFilePath = path.join(scrapedDataFolderPath, latestFile.name);
+  const [latestFile, penultimateFile] = sortedFiles.slice(0, 2);
 
-    compareAndSaveDifferences(newStructure, latestFilePath, updatesFolderPath);
+  if (sortedFiles.length > 1) {
+    const penultimateFilePath = path.join(scrapedDataFolderPath, penultimateFile.name);
+    compareAndSaveDifferences(newStructure, penultimateFilePath, updatesFolderPath);
   }
 });
