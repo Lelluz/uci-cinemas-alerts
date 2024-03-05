@@ -1,6 +1,7 @@
 const axios = require("axios");
 const fs = require("fs");
 const path = require("path");
+const _ = require("lodash");
 
 const apiUrl = "https://www.ucicinemas.it/rest/v3/cinemas/4/programming";
 const scrapedDataFolderPath = "scraped-data";
@@ -11,7 +12,7 @@ async function getJSON() {
   const { data: jsonData } = await axios.get(apiUrl, {
     headers: {
       Authorization: `Bearer ${bearerToken}`,
-    }
+    },
   });
   return jsonData;
 }
@@ -20,97 +21,63 @@ function saveToFile(data, filePath) {
   fs.writeFileSync(filePath, JSON.stringify(data, null, 2));
 }
 
-function combineFilmAndEvents(data) {
-  const combinedData = [];
-
-  data.forEach((film) => {
-    film.events.forEach((event) => {
-      const combinedObject = {
-        ...film,
-        eventId: event.eventId,
-        moviePath: event.moviePath,
-        movieNew: event.movieNew,
-        date: event.date,
-        screen: event.performances[0].screen,
-        buyUrl: event.performances[0].buyUrl,
-        time: event.performances[0].time,
-        webUrl: event.webUrl,
-      };
-
-      combinedData.push(combinedObject);
+function createNewStructure(apiResponse) {
+  return _.flatMap(apiResponse, (movie) => {
+    return _.flatMap(movie.events, (event) => {
+      return event.performances.map((performance) => {
+        return {
+          movieId: movie.movieId,
+          eventId: event.eventId,
+          name: movie.name,
+          isPurchasable: movie.isPurchasable,
+          firstPerformance: movie.firstPerformance,
+          date: event.date,
+          time: performance.time,
+          movieNew: event.movieNew,
+          moviePath: event.moviePath,
+          screen: performance.screen,
+          webUrl: event.webUrl,
+          buyUrl: performance.buyUrl,
+          moviePosterMedium: movie.moviePosterMedium,
+        };
+      });
     });
   });
-
-  return combinedData;
 }
 
-function compareLatestTwoFiles(scrapedDataFolderPath) {
-  const scrapedDataFiles = fs.readdirSync(scrapedDataFolderPath);
-  const sortedFiles = scrapedDataFiles
-    .map((filename) => ({
-      name: filename,
-      time: fs.statSync(path.join(scrapedDataFolderPath, filename)).birthtimeMs,
-    }))
-    .sort((a, b) => b.time - a.time);
-  const [latestFile, penultimateFile] = sortedFiles.slice(0, 2);
+function compareAndSaveDifferences(newStructure, latestFilePath, updatesFolderPath) {
+  if (fs.existsSync(latestFilePath)) {
+    const latestData = JSON.parse(fs.readFileSync(latestFilePath));
+    const combinedLatestData = createNewStructure(latestData);
 
-  if (latestFile && penultimateFile) {
-    const latestFilePath = path.join(scrapedDataFolderPath, latestFile.name);
-    const penultimateFilePath = path.join(
-      scrapedDataFolderPath,
-      penultimateFile.name
-    );
-
-    const latestData = fs.existsSync(latestFilePath)
-      ? JSON.parse(fs.readFileSync(latestFilePath))
-      : [];
-    const penultimateData = fs.existsSync(penultimateFilePath)
-      ? JSON.parse(fs.readFileSync(penultimateFilePath))
-      : [];
-
-    const combinedLatestData = combineFilmAndEvents(latestData);
-    const combinedPenultimateData = combineFilmAndEvents(penultimateData);
-
-    const differences = combinedLatestData.filter((latestItem) => {
-      const correspondingPenultimateItem = combinedPenultimateData.find(
-        (penultimateItem) => JSON.stringify(penultimateItem) === JSON.stringify(latestItem)
-      );
-
-      return !correspondingPenultimateItem;
-    });
+    const differences = _.differenceWith(newStructure, combinedLatestData, _.isEqual);
 
     if (differences.length > 0) {
-      console.log("Differences detected.");
+      console.log("Differences detected:");
 
-      // Creare la combinazione anche per le differences
-      const combinedDifferences = combineFilmAndEvents(differences);
+      differences.forEach((diff) => {
+        console.log(diff);
+      });
 
-      console.log(combinedDifferences)
+      const timestamp = new Date()
+        .toISOString()
+        .replace(/:/g, "-")
+        .replace(/\./g, "-");
+      const differencesFilePath = path.join(
+        updatesFolderPath,
+        `differences_${timestamp}.json`
+      );
 
-      // Salvare la combinazione delle differences
-      saveDifferencesToFile(combinedDifferences, updatesFolderPath);
+      fs.writeFileSync(
+        differencesFilePath,
+        JSON.stringify(differences, null, 2)
+      );
     } else {
       console.log("No differences found.");
     }
   } else {
-    console.log("Not enough files for comparison.");
+    console.log("No previous data for comparison.");
   }
-}
-
-function saveDifferencesToFile(differences, updatesFolderPath) {
-  const timestamp = new Date()
-    .toISOString()
-    .replace(/:/g, "-")
-    .replace(/\./g, "-");
-  const differencesFilePath = path.join(
-    updatesFolderPath,
-    `differences_${timestamp}.json`
-  );
-
-  fs.writeFileSync(
-    differencesFilePath,
-    JSON.stringify(differences, null, 2)
-  );
 }
 
 if (!fs.existsSync(scrapedDataFolderPath)) {
@@ -130,6 +97,21 @@ const newScrapedDataFilePath = path.join(
 );
 
 getJSON().then((data) => {
-  saveToFile(data, newScrapedDataFilePath);
-  compareLatestTwoFiles(scrapedDataFolderPath);
+  const newStructure = createNewStructure(data);
+  saveToFile(newStructure, newScrapedDataFilePath);
+
+  const scrapedDataFiles = fs.readdirSync(scrapedDataFolderPath);
+  const sortedFiles = scrapedDataFiles
+    .map((filename) => ({
+      name: filename,
+      time: fs.statSync(path.join(scrapedDataFolderPath, filename)).birthtimeMs,
+    }))
+    .sort((a, b) => b.time - a.time);
+
+  if (sortedFiles.length > 1) {
+    const latestFile = sortedFiles[1];
+    const latestFilePath = path.join(scrapedDataFolderPath, latestFile.name);
+
+    compareAndSaveDifferences(newStructure, latestFilePath, updatesFolderPath);
+  }
 });
