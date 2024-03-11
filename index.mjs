@@ -113,21 +113,6 @@ async function compareLatestTwoFiles(scrapedDataFolderPath) {
         console.log("Differences detected.");
         await saveDifferencesToFile(differences);
 
-        /*const newEvents = `
-        Ecco i nuovi spettacoli:
-
-            ${differences
-              .map(
-                (event) => `
-              Film: ${event.movieTitle}
-              Data: ${event.date}
-              Orario: ${event.time}
-              Cinema: ${event.cinemaName}
-            `
-              )
-              .join("")}
-          `;*/
-
         const telegramChannelMessageText = `
           È stata aggiornata la programmazione dei film UCI Cinemas nelle sale IMAX! 🎥 🍿
           
@@ -199,6 +184,33 @@ async function sendTelegramAlert(message) {
   }
 }
 
+async function deleteAllOldFilesInFolder(folderPath) {
+  try {
+    const objects = await s3.listObjectsV2({ Bucket: bucketName, Prefix: folderPath });
+    const oneHourAgo = moment().subtract(1, 'hours');
+
+    for (const obj of objects.Contents || []) {
+        const lastModified = moment(obj.LastModified);
+
+        if (lastModified.isBefore(oneHourAgo)) {
+            await s3.deleteObject({ Bucket: bucketName, Key: obj.Key });
+        }
+    }
+
+    console.log('File eliminati con successo.');
+    return {
+        statusCode: 200,
+        body: JSON.stringify('Operazione completata con successo.'),
+    };
+  } catch (error) {
+      console.error('Errore durante l\'eliminazione dei file:', error);
+      return {
+          statusCode: 500,
+          body: JSON.stringify('Errore durante l\'eliminazione dei file.'),
+      };
+  }
+}
+
 export const handler = async (event) => {
   try {
     const timestamp = new Date()
@@ -238,6 +250,8 @@ export const handler = async (event) => {
     console.log("New data saved to:", newScrapedDataFilePath);
 
     await compareLatestTwoFiles(scrapedDataFolderPath);
+    await deleteAllOldFilesInFolder(scrapedDataFolderPath);
+    await deleteAllOldFilesInFolder(updatesFolderPath);
   } catch (error) {
     console.error("Error in Lambda function:", error);
   }
