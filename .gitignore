@@ -1,3 +1,5 @@
 node_modules
+local-tests
 scraped-data
 differences-data
+package.zip

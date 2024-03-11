@@ -2,6 +2,7 @@ import axios from "axios";
 import cheerio from "cheerio";
 import { diffArrays } from "diff";
 import { S3 } from "@aws-sdk/client-s3";
+import moment from "moment"
 
 const s3 = new S3({ region: "eu-south-1" });
 const bucketName = "uci-cinemas-imax-scraper-bucket-milan";
